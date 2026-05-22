@@ -1,114 +1,79 @@
 # Event Ledger
 
-Event Ledger is a simple distributed microservices-based application built to process financial transaction events while handling duplicate requests, out-of-order event delivery, and downstream service failures.
+This project is a simple event ledger system built as a take-home exercise using a microservices approach.
 
-## Approach Followed
+It consists of two services:
 
-The implementation was designed using a simple two-service architecture to maintain clear separation of responsibilities.
+- **Gateway Service** – public-facing API that receives transaction events
+- **Account Service** – internal service responsible for account balances and transaction history
 
-### Event Gateway Service
-The Gateway acts as the public-facing entry point for all incoming requests.
+## Architecture Overview
 
-Responsibilities:
-- Accept transaction events
-- Validate request payloads
-- Enforce idempotency using `eventId`
-- Store event records locally
-- Forward valid transactions to the Account Service
-- Serve event lookup APIs
-- Handle Account Service failures gracefully
+The Gateway Service accepts incoming events, validates them, checks for duplicate submissions using `eventId`, stores the event locally, and forwards valid transactions to the Account Service.
 
-### Account Service
-The Account Service manages account state.
+The Account Service applies the transaction to the account, maintains the balance, and stores transaction history.
 
-Responsibilities:
-- Maintain account balances
-- Store transaction history
-- Prevent duplicate transaction application
-- Serve account-level queries
+Both services are independent and use separate SQLite databases.
 
----
-
-## Architecture
+Architecture flow:
 
 ```text
 Client
    |
    v
-+----------------------+
-|  Event Gateway API   |
-|   FastAPI + SQLite   |
-+----------------------+
-          |
-          | REST API Call
-          v
-+----------------------+
-|   Account Service    |
-|   FastAPI + SQLite   |
-+----------------------+
+Gateway Service
+(FastAPI + SQLite)
+   |
+   v
+Account Service
+(FastAPI + SQLite)
 ```
 
 ---
 
-## Design Decisions
+## Setup Instructions
 
-### Independent Services
-Both services run independently and maintain separate SQLite databases.
+### Prerequisites
 
-This ensures:
-- no shared application state
-- clean service boundaries
-- easier failure isolation
+Make sure the following are installed:
 
----
-
-### Idempotency
-Duplicate event submissions are handled using `eventId`.
-
-If the same event is submitted multiple times:
-- the duplicate is detected
-- the event is not processed again
-- balance remains unchanged
-
----
-
-### Out-of-Order Event Handling
-Since upstream systems may send events out of sequence, events are stored independently and event listing APIs return results ordered by `eventTimestamp`.
-
-Balance calculations remain correct regardless of arrival order.
-
----
-
-### Graceful Failure Handling
-If the Account Service is unavailable:
-- Gateway returns `503 Service Unavailable`
-- Event retrieval endpoints continue to work
-- Requests do not hang indefinitely
-
----
-
-## Tech Stack
-
-- Python 3.11
-- FastAPI
-- SQLAlchemy
-- SQLite
-- HTTPX
+- Python 3.11+
+- pip
 - Docker
 - Docker Compose
 
 ---
 
-## Running the Application
+## Install Dependencies
 
-### Using Docker
+### Gateway Service
 
-From project root:
+```bash
+cd gateway_service
+pip install -r requirements.txt
+```
+
+### Account Service
+
+```bash
+cd account_service
+pip install -r requirements.txt
+```
+
+---
+
+## Running the Services
+
+### Option 1: Docker Compose
+
+From the project root:
 
 ```bash
 docker compose build
 docker compose up
 ```
+
+Services will be available at:
 
 Gateway:
 
@@ -124,13 +89,12 @@ http://localhost:8001/docs
 
 ---
 
-### Running Locally
+### Option 2: Run Manually
 
 Start Account Service:
 
 ```bash
 cd account_service
-pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8001
 ```
 
@@ -138,28 +102,39 @@ Start Gateway Service:
 
 ```bash
 cd gateway_service
-pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
 
 ---
 
-## Available APIs
+## Running Tests
 
-### Gateway
-- `POST /events`
-- `GET /events/{eventId}`
-- `GET /events?account={accountId}`
-- `GET /health`
+### Gateway Tests
 
-### Account Service
-- `POST /accounts/{accountId}/transactions`
-- `GET /accounts/{accountId}/balance`
-- `GET /accounts/{accountId}`
-- `GET /health`
+```bash
+cd gateway_service
+pytest
+```
+
+### Account Service Tests
+
+```bash
+cd account_service
+pytest
+```
 
 ---
 
-## Notes
+## Resiliency Approach
 
-This implementation focuses on correctness, simplicity, and clear service separation while meeting the core requirements of the exercise.
+The Gateway Service uses timeout-based failure handling when calling the Account Service.
+
+If the Account Service is unavailable or does not respond in time, the Gateway returns:
+
+```http
+503 Service Unavailable
+```
+
+instead of hanging or returning an unclear server error.
+
+This keeps failure behavior predictable and allows event lookup endpoints to continue functioning even if the downstream service is unavailable.
