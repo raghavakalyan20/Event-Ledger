@@ -1,7 +1,7 @@
 import httpx
 from fastapi import HTTPException
 
-ACCOUNT_SERVICE_URL = "http://localhost:8001"
+ACCOUNT_SERVICE_URL = "http://account_service:8001"
 
 
 async def apply_transaction(payload: dict):

@@ -1,16 +1,10 @@
 __pycache__/
 *.pyc
-*.pyo
 *.db
 .env
 .venv/
 venv/
-.pytest_cache/
 .idea/
 .vscode/
-coverage/
-htmlcov/
-dist/
-build/
-*.log
 .DS_Store
+pytest_cache/
