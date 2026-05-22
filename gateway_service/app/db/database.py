@@ -1,17 +1,25 @@
-from sqlalchemy import Column, String, Float, Integer
-from .database import Base
+from sqlalchemy import create_engine
+from sqlalchemy.orm import declarative_base, sessionmaker
 
-class Account(Base):
-    __tablename__ = "accounts"
+DATABASE_URL = "sqlite:///./gateway.db"
 
-    account_id = Column(String, primary_key=True)
-    balance = Column(Float, default=0.0)
+engine = create_engine(
+    DATABASE_URL,
+    connect_args={"check_same_thread": False}
+)
 
-class Transaction(Base):
-    __tablename__ = "transactions"
+SessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=engine
+)
 
-    id = Column(Integer, primary_key=True)
-    event_id = Column(String, unique=True)
-    account_id = Column(String)
-    type = Column(String)
-    amount = Column(Float)
+Base = declarative_base()
+
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
